@@ -37,6 +37,21 @@
      <number>10</number>
     </property>
     <item>
+     <widget class="QLabel" name="expressionLabel">
+      <property name="font">
+       <font>
+        <pointsize>10</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignRight|Qt::AlignVCenter</set>
+      </property>
+     </widget>
+    </item>
+    <item>
      <widget class="QLineEdit" name="display">
       <property name="minimumSize">
        <size>

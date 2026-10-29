@@ -32,11 +32,29 @@ void MainWindow::connectButtons()
     connect(ui->btnBack,       &QPushButton::clicked, this, &MainWindow::backspaceClicked);
     connect(ui->btnClearEntry, &QPushButton::clicked, this, &MainWindow::clearEntryClicked);
     connect(ui->btnClear,      &QPushButton::clicked, this, &MainWindow::clearClicked);
+
+    // 四个运算符按键共用 operatorClicked，靠按键文本区分
+    connect(ui->btnAdd, &QPushButton::clicked, this, &MainWindow::operatorClicked);
+    connect(ui->btnSub, &QPushButton::clicked, this, &MainWindow::operatorClicked);
+    connect(ui->btnMul, &QPushButton::clicked, this, &MainWindow::operatorClicked);
+    connect(ui->btnDiv, &QPushButton::clicked, this, &MainWindow::operatorClicked);
+
+    connect(ui->btnEq,  &QPushButton::clicked, this, &MainWindow::equalsClicked);
 }
 
-// 输入一位数字：新输入状态下直接替换显示，否则追加到末尾
+// 输入一位数字：刚算完结果则新开一轮，否则替换/追加显示
 void MainWindow::inputDigit(const QString &digit)
 {
+    if (m_justCalculated) {
+        // 计算完成后直接输入数字：丢弃结果，开始新一轮输入
+        m_expression.clear();
+        ui->expressionLabel->setText(m_expression);
+        ui->display->setText(digit);
+        m_waitingForOperand = false;
+        m_justCalculated = false;
+        return;
+    }
+
     if (m_waitingForOperand) {
         ui->display->setText(digit);
         m_waitingForOperand = false;
@@ -50,6 +68,13 @@ void MainWindow::inputDigit(const QString &digit)
 // 输入小数点：新输入状态下自动补前导 0
 void MainWindow::inputPoint()
 {
+    if (m_justCalculated) {
+        m_expression.clear();
+        ui->expressionLabel->setText(m_expression);
+        m_justCalculated = false;
+        m_waitingForOperand = true;    // 计算完成后输入小数点：按新输入处理
+    }
+
     if (m_waitingForOperand) {
         ui->display->setText("0.");
         m_waitingForOperand = false;
@@ -90,7 +115,7 @@ void MainWindow::backspaceClicked()
     ui->display->setText(text);
 }
 
-// CE：只清除当前输入的数
+// CE：只清除当前输入的数，不影响已登记的运算
 void MainWindow::clearEntryClicked()
 {
     ui->display->setText("0");
@@ -102,4 +127,69 @@ void MainWindow::clearClicked()
 {
     ui->display->setText("0");
     m_waitingForOperand = true;
+    m_justCalculated = false;
+    m_pendingOperand = 0.0;
+    m_pendingOperator.clear();
+    m_expression.clear();
+    ui->expressionLabel->setText(m_expression);
+}
+
+// 处理运算符：若有待运算则先算出中间结果，再登记新的运算
+// 采用"即时运算"策略：2+3×4 = 20（从左到右逐级计算，与 Windows 标准计算器一致）
+void MainWindow::applyOperator(const QString &op)
+{
+    if (m_justCalculated) {
+        m_expression.clear();          // 等号后直接按运算符：以结果为新表达式的起点
+        m_justCalculated = false;
+    }
+
+    double current = ui->display->text().toDouble();
+
+    if (!m_pendingOperator.isEmpty()) {
+        m_pendingOperand = calculate(m_pendingOperand, current, m_pendingOperator);
+        ui->display->setText(QString::number(m_pendingOperand, 'g', 12));
+        m_expression += QString::number(current, 'g', 12) + ' ';
+    } else {
+        m_pendingOperand = current;
+    }
+
+    m_expression += op + ' ';          // 运算符同步显示到表达式预览行
+    ui->expressionLabel->setText(m_expression);
+
+    m_pendingOperator = op;
+    m_waitingForOperand = true;
+}
+
+void MainWindow::operatorClicked()
+{
+    applyOperator(static_cast<QPushButton *>(sender())->text());
+}
+
+// 等号：执行待运算并显示结果
+void MainWindow::equalsClicked()
+{
+    if (m_pendingOperator.isEmpty() || m_waitingForOperand)
+        return;    // 没有完整表达式（只有操作数+操作符）时不响应
+
+    double current = ui->display->text().toDouble();
+    double result = calculate(m_pendingOperand, current, m_pendingOperator);
+
+    m_expression += QString::number(current, 'g', 12) + " =";
+    ui->expressionLabel->setText(m_expression);
+
+    ui->display->setText(QString::number(result, 'g', 12));
+    m_pendingOperand = result;
+    m_pendingOperator.clear();
+    m_waitingForOperand = true;
+    m_justCalculated = true;
+}
+
+// 执行一次四则运算
+double MainWindow::calculate(double a, double b, const QString &op)
+{
+    if (op == "+") return a + b;
+    if (op == "-") return a - b;
+    if (op == "×") return a * b;
+    if (op == "÷") return a / b;
+    return 0.0;
 }
