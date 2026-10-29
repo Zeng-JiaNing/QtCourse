@@ -8,6 +8,11 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     connectButtons();
+
+    // 按键一律不接收焦点：避免鼠标点击某个按键后它抢走焦点，
+    // 导致回车/空格键重复触发该按钮而不是走全局键盘处理
+    for (QPushButton *btn : findChildren<QPushButton *>())
+        btn->setFocusPolicy(Qt::NoFocus);
 }
 
 MainWindow::~MainWindow()
@@ -188,8 +193,38 @@ void MainWindow::equalsClicked()
 double MainWindow::calculate(double a, double b, const QString &op)
 {
     if (op == "+") return a + b;
-    if (op == "-") return a - b;
+    if (op == "−") return a - b;
     if (op == "×") return a * b;
     if (op == "÷") return a / b;
     return 0.0;
+}
+
+// 键盘输入入口：所有按键都映射到与鼠标按键相同的处理函数，
+// 保证鼠标输入与键盘输入复用同一套逻辑、行为完全一致
+void MainWindow::keyPressEvent(QKeyEvent *event)
+{
+    int key = event->key();
+
+    if (key >= Qt::Key_0 && key <= Qt::Key_9) {
+        inputDigit(QString::number(key - Qt::Key_0));
+        return;
+    }
+
+    switch (key) {
+    case Qt::Key_Period:
+    case Qt::Key_Comma:     inputPoint();        break;   // 小数点（兼容部分键盘的逗号）
+    case Qt::Key_Plus:      applyOperator("+");  break;
+    case Qt::Key_Minus:     applyOperator("−");  break;   // 与按钮文本一致的 Unicode 减号
+    case Qt::Key_Asterisk:  applyOperator("×");  break;
+    case Qt::Key_Slash:     applyOperator("÷");  break;
+    case Qt::Key_Enter:
+    case Qt::Key_Return:
+    case Qt::Key_Equal:     equalsClicked();     break;
+    case Qt::Key_Backspace: backspaceClicked();  break;
+    case Qt::Key_Delete:    clearEntryClicked(); break;   // Delete = CE
+    case Qt::Key_Escape:    clearClicked();      break;   // Esc   = C
+    case Qt::Key_F9:        signClicked();       break;   // F9    = ±（与Windows计算器一致）
+    default:
+        QMainWindow::keyPressEvent(event);
+    }
 }

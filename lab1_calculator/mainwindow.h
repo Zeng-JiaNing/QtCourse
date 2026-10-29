@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QKeyEvent>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -14,6 +15,9 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+
+protected:
+    void keyPressEvent(QKeyEvent *event) override;  // 键盘输入入口，映射到与鼠标相同的处理函数
 
 private slots:
     void pointClicked();        // 小数点
