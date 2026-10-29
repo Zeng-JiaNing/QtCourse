@@ -25,6 +25,7 @@ private slots:
     void backspaceClicked();    // 退格
     void clearEntryClicked();   // 清除当前输入 CE
     void clearClicked();        // 全部清除 C
+    void showError(const QString &msg);   // 显示错误信息并复位运算状态
     void operatorClicked();     // 四则运算符（从按键文本取操作符）
     void equalsClicked();       // 等号
 

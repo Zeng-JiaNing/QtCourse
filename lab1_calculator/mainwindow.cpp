@@ -83,7 +83,8 @@ void MainWindow::inputPoint()
     if (m_waitingForOperand) {
         ui->display->setText("0.");
         m_waitingForOperand = false;
-    } else {
+    } else if (!ui->display->text().contains('.')) {
+        // 只有当前输入不含小数点时才追加，避免出现 3..5 这样的非法数字
         ui->display->setText(ui->display->text() + ".");
     }
 }
@@ -139,16 +140,41 @@ void MainWindow::clearClicked()
     ui->expressionLabel->setText(m_expression);
 }
 
+// 显示错误信息并复位运算状态；之后的下一次输入将开始新一轮计算
+void MainWindow::showError(const QString &msg)
+{
+    m_expression.clear();
+    ui->expressionLabel->setText(m_expression);
+    ui->display->setText(msg);
+    m_pendingOperand = 0.0;
+    m_pendingOperator.clear();
+    m_waitingForOperand = true;
+    m_justCalculated = true;
+}
+
 // 处理运算符：若有待运算则先算出中间结果，再登记新的运算
 // 采用"即时运算"策略：2+3×4 = 20（从左到右逐级计算，与 Windows 标准计算器一致）
 void MainWindow::applyOperator(const QString &op)
 {
+    if (m_waitingForOperand && !m_pendingOperator.isEmpty()) {
+        // 连续按运算符：只替换操作符本身，不把当前显示的数当作新操作数参与计算
+        m_pendingOperator = op;
+        m_expression.replace(m_expression.length() - 2, 1, op);
+        ui->expressionLabel->setText(m_expression);
+        return;
+    }
+
     if (m_justCalculated) {
         m_expression.clear();          // 等号后直接按运算符：以结果为新表达式的起点
         m_justCalculated = false;
     }
 
     double current = ui->display->text().toDouble();
+
+    if (m_pendingOperator == "÷" && current == 0.0) {
+        showError("错误：除数不能为 0");   // 连续运算时同样不能除以 0
+        return;
+    }
 
     if (!m_pendingOperator.isEmpty()) {
         m_pendingOperand = calculate(m_pendingOperand, current, m_pendingOperator);
@@ -177,6 +203,12 @@ void MainWindow::equalsClicked()
         return;    // 没有完整表达式（只有操作数+操作符）时不响应
 
     double current = ui->display->text().toDouble();
+
+    if (m_pendingOperator == "÷" && current == 0.0) {
+        showError("错误：除数不能为 0");   // 按等号执行运算前先检查除数
+        return;
+    }
+
     double result = calculate(m_pendingOperand, current, m_pendingOperator);
 
     m_expression += QString::number(current, 'g', 12) + " =";
