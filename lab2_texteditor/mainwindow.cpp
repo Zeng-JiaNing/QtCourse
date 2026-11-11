@@ -15,6 +15,9 @@
 #include <QPlainTextEdit>
 #include <QClipboard>
 #include <QGuiApplication>
+#include <QColorDialog>
+#include <QFont>
+#include <QPalette>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -82,12 +85,64 @@ MainWindow::MainWindow(QWidget *parent)
     ui->actionCut->setEnabled(false);
     ui->actionCopy->setEnabled(false);
     updatePasteEnabled();       // 粘贴不看文档看剪贴板，启动时按剪贴板实况定
+
+    // ==================== 格式设置 ====================
+    // 字号框初始值同步成编辑器当前字号，不然框里写12、文字实际是9pt，对不上
+    fontSizeSpinBox->setValue(ui->textEdit->font().pointSize());
+    // valueChanged有int/QString两个重载，static_cast指明取int那个
+    connect(fontSizeSpinBox, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
+            this, &MainWindow::changeFontSize);
+    connect(ui->actionFontColor, &QAction::triggered,     this, &MainWindow::changeFontColor);
+    connect(ui->actionBgColor,   &QAction::triggered,     this, &MainWindow::changeBgColor);
+    connect(ui->actionWrap,      &QAction::toggled,       this, &MainWindow::toggleWrap);
 }
 
 // 剪贴板里有文本才允许粘贴；从别的程序复制了东西，这里的粘贴键也会自己亮起来
 void MainWindow::updatePasteEnabled()
 {
     ui->actionPaste->setEnabled(!QGuiApplication::clipboard()->text().isEmpty());
+}
+
+// ==================== 格式设置 ====================
+
+// 字号选择框一转，编辑区字号跟着变：QPlainTextEdit用控件字体渲染全部文本，
+// 改一处就全变（不像QTextEdit要按选区设字符格式）
+void MainWindow::changeFontSize(int size)
+{
+    QFont font = ui->textEdit->font();
+    font.setPointSize(size);
+    ui->textEdit->setFont(font);
+}
+
+// 字体颜色：改编辑框调色板的 Text 色；取色器默认给当前文字颜色，取消则不动
+void MainWindow::changeFontColor()
+{
+    QColor color = QColorDialog::getColor(ui->textEdit->palette().color(QPalette::Text),
+                                          this, QStringLiteral("选择字体颜色"));
+    if (!color.isValid())
+        return;                 // 用户点了取消，返回的是非法颜色
+    QPalette pal = ui->textEdit->palette();
+    pal.setColor(QPalette::Text, color);
+    ui->textEdit->setPalette(pal);
+}
+
+// 背景色：改调色板的 Base（文本控件底色）
+void MainWindow::changeBgColor()
+{
+    QColor color = QColorDialog::getColor(ui->textEdit->palette().color(QPalette::Base),
+                                          this, QStringLiteral("选择背景颜色"));
+    if (!color.isValid())
+        return;
+    QPalette pal = ui->textEdit->palette();
+    pal.setColor(QPalette::Base, color);
+    ui->textEdit->setPalette(pal);
+}
+
+// 自动换行开关：勾选=到窗口右边缘折行；取消=一行写到头，出横向滚动条
+void MainWindow::toggleWrap(bool checked)
+{
+    ui->textEdit->setLineWrapMode(checked ? QPlainTextEdit::WidgetWidth
+                                          : QPlainTextEdit::NoWrap);
 }
 
 MainWindow::~MainWindow()

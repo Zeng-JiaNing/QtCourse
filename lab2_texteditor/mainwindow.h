@@ -34,6 +34,11 @@ private slots:
     void updateTitle(bool modified);   // 标题跟随"文件名+修改状态"变化
     void updatePasteEnabled();         // 剪贴板里有文本时粘贴键才可用
 
+    void changeFontSize(int size);     // 字号选择框联动编辑器字号
+    void changeFontColor();            // 字体颜色
+    void changeBgColor();              // 背景颜色
+    void toggleWrap(bool checked);     // 自动换行开关
+
 private:
     bool maybeSave();                       // 有未保存修改时询问，点取消返回false
     bool loadFile(const QString &path);     // 读文件进编辑器
