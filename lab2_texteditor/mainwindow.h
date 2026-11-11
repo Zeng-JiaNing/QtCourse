@@ -32,6 +32,7 @@ private slots:
     bool saveFile();       // 保存（未命名自动转另存为），返回是否保存成功
     bool saveFileAs();     // 另存为
     void updateTitle(bool modified);   // 标题跟随"文件名+修改状态"变化
+    void updatePasteEnabled();         // 剪贴板里有文本时粘贴键才可用
 
 private:
     bool maybeSave();                       // 有未保存修改时询问，点取消返回false

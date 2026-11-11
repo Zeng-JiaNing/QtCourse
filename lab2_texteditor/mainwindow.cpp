@@ -12,6 +12,9 @@
 #include <QFileInfo>
 #include <QCloseEvent>
 #include <QTextDocument>
+#include <QPlainTextEdit>
+#include <QClipboard>
+#include <QGuiApplication>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -48,6 +51,43 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::updateTitle);
 
     updateTitle(ui->textEdit->document()->isModified());   // 程序启动时先把标题摆好
+
+    // ==================== 编辑操作 ====================
+    // 六个编辑Action直接接到编辑框的现成槽上，不另写处理函数
+    connect(ui->actionUndo,      &QAction::triggered, ui->textEdit, &QPlainTextEdit::undo);
+    connect(ui->actionRedo,      &QAction::triggered, ui->textEdit, &QPlainTextEdit::redo);
+    connect(ui->actionCut,       &QAction::triggered, ui->textEdit, &QPlainTextEdit::cut);
+    connect(ui->actionCopy,      &QAction::triggered, ui->textEdit, &QPlainTextEdit::copy);
+    connect(ui->actionPaste,     &QAction::triggered, ui->textEdit, &QPlainTextEdit::paste);
+    connect(ui->actionSelectAll, &QAction::triggered, ui->textEdit, &QPlainTextEdit::selectAll);
+
+    // ==================== Action使能 ====================
+    // 文档的撤销栈有没有东西 → 撤销/重做键亮或灰（信号直连QAction::setEnabled）
+    connect(ui->textEdit->document(), &QTextDocument::undoAvailable,
+            ui->actionUndo, &QAction::setEnabled);
+    connect(ui->textEdit->document(), &QTextDocument::redoAvailable,
+            ui->actionRedo, &QAction::setEnabled);
+    // 编辑框里有没有选中内容 → 剪切/复制键亮或灰
+    connect(ui->textEdit, &QPlainTextEdit::copyAvailable,
+            ui->actionCopy, &QAction::setEnabled);
+    connect(ui->textEdit, &QPlainTextEdit::copyAvailable,
+            ui->actionCut, &QAction::setEnabled);
+    // 系统剪贴板内容一变（含从别的程序复制）→ 粘贴键跟着亮或灰
+    connect(QGuiApplication::clipboard(), &QClipboard::dataChanged,
+            this, &MainWindow::updatePasteEnabled);
+
+    // 初始状态：没有任何可撤销/重做的内容，也没选中，先全部灰着等信号点亮
+    ui->actionUndo->setEnabled(false);
+    ui->actionRedo->setEnabled(false);
+    ui->actionCut->setEnabled(false);
+    ui->actionCopy->setEnabled(false);
+    updatePasteEnabled();       // 粘贴不看文档看剪贴板，启动时按剪贴板实况定
+}
+
+// 剪贴板里有文本才允许粘贴；从别的程序复制了东西，这里的粘贴键也会自己亮起来
+void MainWindow::updatePasteEnabled()
+{
+    ui->actionPaste->setEnabled(!QGuiApplication::clipboard()->text().isEmpty());
 }
 
 MainWindow::~MainWindow()
