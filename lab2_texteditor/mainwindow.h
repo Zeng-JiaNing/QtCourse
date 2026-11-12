@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QSpinBox>
+#include <QLabel>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -38,11 +39,13 @@ private slots:
     void changeFontColor();            // 字体颜色
     void changeBgColor();              // 背景颜色
     void toggleWrap(bool checked);     // 自动换行开关
+    void updateCursorPosition();       // 状态栏右侧：行/列
 
 private:
     bool maybeSave();                       // 有未保存修改时询问，点取消返回false
     bool loadFile(const QString &path);     // 读文件进编辑器
     bool writeToFile(const QString &path);  // 把编辑器内容写盘
+    void updateStatusBarPath();             // 状态栏左侧：当前文件路径（跟标题一起刷）
 
     Ui::MainWindow *ui;
     QSpinBox *fontSizeSpinBox = nullptr;   // 工具栏上的字号选择框（非Action，代码里插入）
@@ -51,6 +54,9 @@ private:
     ReplaceDialog *replaceDialog = nullptr;
 
     QString m_currentFile;                 // 当前文件路径；空 = 未命名
+
+    QLabel *statusPathLabel = nullptr;     // 状态栏左侧：文件路径
+    QLabel *statusPosLabel = nullptr;      // 状态栏右侧：行列
 };
 
 #endif // MAINWINDOW_H

@@ -18,6 +18,9 @@
 #include <QColorDialog>
 #include <QFont>
 #include <QPalette>
+#include <QStatusBar>
+#include <QTextCursor>
+#include <QDir>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -52,8 +55,6 @@ MainWindow::MainWindow(QWidget *parent)
     // 文档的修改状态一变（改一个字变true / 存盘变false），标题上的*就跟着变
     connect(ui->textEdit->document(), &QTextDocument::modificationChanged,
             this, &MainWindow::updateTitle);
-
-    updateTitle(ui->textEdit->document()->isModified());   // 程序启动时先把标题摆好
 
     // ==================== 编辑操作 ====================
     // 六个编辑Action直接接到编辑框的现成槽上，不另写处理函数
@@ -95,6 +96,25 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionFontColor, &QAction::triggered,     this, &MainWindow::changeFontColor);
     connect(ui->actionBgColor,   &QAction::triggered,     this, &MainWindow::changeBgColor);
     connect(ui->actionWrap,      &QAction::toggled,       this, &MainWindow::toggleWrap);
+
+    // ==================== 视图与状态栏 ====================
+    // 视图菜单的两个勾选项直接开关工具栏/状态栏，勾没了工具栏就藏起来
+    connect(ui->actionToolbar,   &QAction::toggled, ui->toolBar,   &QToolBar::setVisible);
+    connect(ui->actionStatusbar, &QAction::toggled, ui->statusbar, &QStatusBar::setVisible);
+
+    // 状态栏布局：左边跟文件路径，右边固定放行列位置
+    statusPathLabel = new QLabel(this);
+    statusPosLabel  = new QLabel(this);
+    ui->statusbar->addWidget(statusPathLabel);           // 左侧，可有可无型信息
+    ui->statusbar->addPermanentWidget(statusPosLabel);   // 右侧，不会被临时消息挤走
+    // 光标一动（打字、删除、点鼠标都算）就刷新行列
+    connect(ui->textEdit, &QPlainTextEdit::cursorPositionChanged,
+            this, &MainWindow::updateCursorPosition);
+
+    // 启动时把标题和状态栏摆好；放在这里是因为updateTitle会刷状态栏路径，
+    // 必须等两个Label建出来之后才能调
+    updateTitle(ui->textEdit->document()->isModified());
+    updateCursorPosition();
 }
 
 // 剪贴板里有文本才允许粘贴；从别的程序复制了东西，这里的粘贴键也会自己亮起来
@@ -304,6 +324,27 @@ void MainWindow::updateTitle(bool modified)
             : QFileInfo(m_currentFile).fileName();
     setWindowTitle(name + QStringLiteral("[*] - ") + QStringLiteral("小牛文本编辑"));
     setWindowModified(modified);
+    updateStatusBarPath();      // 路径和标题同源，m_currentFile一变两个都要刷
+}
+
+// ==================== 视图与状态栏 ====================
+
+// 状态栏左侧：当前文件完整路径；未命名就显示"未命名"
+void MainWindow::updateStatusBarPath()
+{
+    statusPathLabel->setText(m_currentFile.isEmpty()
+            ? QStringLiteral("未命名")
+            : QDir::toNativeSeparators(m_currentFile));
+}
+
+// 状态栏右侧：行、列。QPlainTextEdit里"一行"就是一块（block），
+// 行号=块号+1，列=块内第几个字符+1，一个汉字算1列
+void MainWindow::updateCursorPosition()
+{
+    QTextCursor cursor = ui->textEdit->textCursor();
+    int line = cursor.blockNumber() + 1;
+    int col = cursor.positionInBlock() + 1;
+    statusPosLabel->setText(QStringLiteral("行 %1，列 %2").arg(line).arg(col));
 }
 
 // 点窗口右上角的X（以及菜单退出）都会走到这里：没保存完就不许关
