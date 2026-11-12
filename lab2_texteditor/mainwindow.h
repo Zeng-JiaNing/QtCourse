@@ -41,11 +41,17 @@ private slots:
     void toggleWrap(bool checked);     // 自动换行开关
     void updateCursorPosition();       // 状态栏右侧：行/列
 
+    void findFromDialog(const QString &text, bool caseSensitive, bool backward);
+    void replaceFromDialog(const QString &text, const QString &to, bool caseSensitive);
+    void replaceAllFromDialog(const QString &text, const QString &to, bool caseSensitive);
+
 private:
     bool maybeSave();                       // 有未保存修改时询问，点取消返回false
     bool loadFile(const QString &path);     // 读文件进编辑器
     bool writeToFile(const QString &path);  // 把编辑器内容写盘
     void updateStatusBarPath();             // 状态栏左侧：当前文件路径（跟标题一起刷）
+    bool findInDocument(const QString &text, bool caseSensitive, bool backward);
+                                            // 从光标处循环查找并选中目标，返回是否找到
 
     Ui::MainWindow *ui;
     QSpinBox *fontSizeSpinBox = nullptr;   // 工具栏上的字号选择框（非Action，代码里插入）

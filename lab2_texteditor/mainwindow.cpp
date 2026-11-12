@@ -182,8 +182,11 @@ void MainWindow::showAbout()
 // 查找/替换：无模式打开，不关掉也能继续编辑主窗口
 void MainWindow::showFind()
 {
-    if (!findDialog)
+    if (!findDialog) {
         findDialog = new FindDialog(this);
+        // 对话框只发条件，怎么找由主窗口实现
+        connect(findDialog, &FindDialog::findNext, this, &MainWindow::findFromDialog);
+    }
     findDialog->show();
     findDialog->raise();
     findDialog->activateWindow();
@@ -191,8 +194,16 @@ void MainWindow::showFind()
 
 void MainWindow::showReplace()
 {
-    if (!replaceDialog)
+    if (!replaceDialog) {
         replaceDialog = new ReplaceDialog(this);
+        // 替换窗口里的"查找下一个"固定向后找（它没有方向选项）
+        connect(replaceDialog, &ReplaceDialog::findNext, this,
+                [this](const QString &text, bool caseSensitive) {
+                    findFromDialog(text, caseSensitive, false);
+                });
+        connect(replaceDialog, &ReplaceDialog::replaceOne, this, &MainWindow::replaceFromDialog);
+        connect(replaceDialog, &ReplaceDialog::replaceAll, this, &MainWindow::replaceAllFromDialog);
+    }
     replaceDialog->show();
     replaceDialog->raise();
     replaceDialog->activateWindow();
@@ -345,6 +356,89 @@ void MainWindow::updateCursorPosition()
     int line = cursor.blockNumber() + 1;
     int col = cursor.positionInBlock() + 1;
     statusPosLabel->setText(QStringLiteral("行 %1，列 %2").arg(line).arg(col));
+}
+
+// ==================== 查找与替换 ====================
+
+// 查找对话框"查找下一个"：实际工作交给findInDocument
+void MainWindow::findFromDialog(const QString &text, bool caseSensitive, bool backward)
+{
+    findInDocument(text, caseSensitive, backward);
+}
+
+// 查找实现：从光标当前位置起找，找到则选中目标（QPlainTextEdit::find自带选中高亮）；
+// 光标后面没有了就绕回文档头（向上找则绕回文档尾）再找一圈——循环查找；
+// 整个文档都没有才在状态栏提示"找不到"，不弹窗打断编辑
+bool MainWindow::findInDocument(const QString &text, bool caseSensitive, bool backward)
+{
+    if (text.isEmpty()) {
+        ui->statusbar->showMessage(QStringLiteral("查找内容为空"), 2000);
+        return false;
+    }
+
+    QTextDocument::FindFlags flags;
+    if (caseSensitive)
+        flags |= QTextDocument::FindCaseSensitively;
+    if (backward)
+        flags |= QTextDocument::FindBackward;
+
+    if (ui->textEdit->find(text, flags))
+        return true;
+
+    QTextCursor restart(ui->textEdit->document());      // 空光标定位到文档头/尾
+    restart.movePosition(backward ? QTextCursor::End : QTextCursor::Start);
+    ui->textEdit->setTextCursor(restart);
+
+    if (ui->textEdit->find(text, flags))
+        return true;
+
+    ui->statusbar->showMessage(QStringLiteral("找不到\"%1\"").arg(text), 2000);
+    return false;
+}
+
+// 替换对话框"替换"：当前选中的正好是目标就就地换掉（上一轮查找留下的选区）；
+// 不是就先找到下一个再换——点一次"替换"等于"查找下一个+换掉"，行为和记事本一致
+void MainWindow::replaceFromDialog(const QString &text, const QString &to, bool caseSensitive)
+{
+    if (text.isEmpty()) {
+        ui->statusbar->showMessage(QStringLiteral("查找内容为空"), 2000);
+        return;
+    }
+
+    Qt::CaseSensitivity cs = caseSensitive ? Qt::CaseSensitive : Qt::CaseInsensitive;
+    QTextCursor cursor = ui->textEdit->textCursor();
+
+    if (cursor.hasSelection() && cursor.selectedText().compare(text, cs) == 0) {
+        cursor.insertText(to);                     // 带选区的光标插入文本=替换选区
+    } else if (findInDocument(text, caseSensitive, false)) {
+        ui->textEdit->textCursor().insertText(to); // find已把目标选中，直接换
+    }
+}
+
+// 全部替换：从文档开头起，逐个"找到→换掉→从换完的位置继续找"，直到找不到
+// 关键点：必须从"换完的位置"继续，不能每换一次就从头找——
+// 否则"替换为"里包含查找词（如 a→aa）时会无限循环
+void MainWindow::replaceAllFromDialog(const QString &text, const QString &to, bool caseSensitive)
+{
+    if (text.isEmpty()) {
+        ui->statusbar->showMessage(QStringLiteral("查找内容为空"), 2000);
+        return;
+    }
+
+    QTextDocument::FindFlags flags;
+    if (caseSensitive)
+        flags |= QTextDocument::FindCaseSensitively;
+
+    int count = 0;
+    QTextCursor cursor = ui->textEdit->document()->find(text,
+            QTextCursor(ui->textEdit->document()), flags);
+    while (!cursor.isNull()) {
+        cursor.insertText(to);
+        ++count;
+        cursor = ui->textEdit->document()->find(text, cursor, flags);
+    }
+
+    ui->statusbar->showMessage(QStringLiteral("全部替换完成，共替换 %1 处").arg(count), 3000);
 }
 
 // 点窗口右上角的X（以及菜单退出）都会走到这里：没保存完就不许关
