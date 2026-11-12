@@ -7,8 +7,8 @@ TEMPLATE = app
 
 DEFINES += QT_DEPRECATED_WARNINGS
 
-SOURCES += main.cpp mainwindow.cpp aboutdialog.cpp finddialog.cpp replacedialog.cpp
+SOURCES += main.cpp mainwindow.cpp aboutdialog.cpp finddialog.cpp replacedialog.cpp codeeditor.cpp
 
-HEADERS += mainwindow.h aboutdialog.h finddialog.h replacedialog.h
+HEADERS += mainwindow.h aboutdialog.h finddialog.h replacedialog.h codeeditor.h
 
 FORMS += mainwindow.ui aboutdialog.ui finddialog.ui replacedialog.ui

@@ -3,6 +3,7 @@
 #include "aboutdialog.h"
 #include "finddialog.h"
 #include "replacedialog.h"
+#include "codeeditor.h"
 #include <QLabel>
 #include <QHBoxLayout>
 #include <QFileDialog>
@@ -110,6 +111,13 @@ MainWindow::MainWindow(QWidget *parent)
     // 光标一动（打字、删除、点鼠标都算）就刷新行列
     connect(ui->textEdit, &QPlainTextEdit::cursorPositionChanged,
             this, &MainWindow::updateCursorPosition);
+
+    // ==================== 行号 ====================
+    // textEdit在Designer里promote成了CodeEditor（自带行号区），
+    // 主窗口只管"行号"菜单这个显示开关；启动时按勾选状态对齐（默认不显示）
+    connect(ui->actionLineNumbers, &QAction::toggled,
+            ui->textEdit, &CodeEditor::setLineNumbersVisible);
+    ui->textEdit->setLineNumbersVisible(ui->actionLineNumbers->isChecked());
 
     // 启动时把标题和状态栏摆好；放在这里是因为updateTitle会刷状态栏路径，
     // 必须等两个Label建出来之后才能调
